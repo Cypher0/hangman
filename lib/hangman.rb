@@ -1,77 +1,77 @@
+# Class for the game of Hangman
 class Game
-
   def initialize
     @misses = []
     @guess = ''
     @progress = []
     @guessed_letters = []
-  end
-
-  def load_dictionary
     @dictionary = []
-    File.open('5desk.txt', 'r').readlines.each do |line|
-      @dictionary << line if line.strip.length.between?(5, 12)
-    end
   end
 
-  def pick_word
-    @word = @dictionary.sample.strip.downcase.split('')
-  end
-
-  def guess_a_letter
-    puts 'Guess a letter! (Or type "save" to save your game): '
-    guess = gets.chomp.downcase
-    if guess.downcase == 'save'
-      save_game
-      game_loop
-    else
-      if @misses.include?(guess) || @progress.include?(guess)
-        puts 'You have already tried that letter!'
-        guess_a_letter
-      elsif ('a'..'z').include?(guess.downcase)
-        @guess = guess
-      else
-        puts 'That is not a valid guess! Make sure to use a single character between A and Z.'
-        guess_a_letter
-      end
-    end
-  end
-
-  def save_game
-    puts "Enter a name for your saved game: "
-    name = gets.chomp
-    saved_game = File.open("saves/#{name}", 'w')
-    saved_game.puts Marshal::dump($a)
-    puts 'Game saved!'
-  end
-
+  # Display a menu for the player to start, load or exit the game
   def start_menu
-    puts 'Welcome to Hangman!'
-    puts 'Do you want to start a (N)ew game or (L)oad a previously saved game?'
-    choice = gets.chomp
-    if choice.downcase == 'n'
-      start
-    elsif choice.downcase == 'l'
-      load_game
-      $a.game_loop
+    puts 'Welcome! Start a (N)ew game, (L)oad a saved game, or (E)xit?'
+    choice = gets.chomp.downcase
+    case choice
+    when 'n' then start_new_game
+    when 'l' then load
+    when 'e' then exit_game
     else
-      puts 'I didn\'t understand that, please try again.'
+      puts "I didn't understand that, try again."
       start_menu
     end
   end
 
-  def load_game
-    puts 'Enter the name of your saved file: '
+  # Display a list of saves if there are any, load the requested game object.
+  def load
+    display_saved_games
+    puts 'Please type the name of your game:'
     name = gets.chomp
-    if File.exist?("saves/#{name}")
-      game_file = File.open("saves/#{name}", 'r')
-      $a = Marshal::load(game_file)
+    load_game(name)
+  end
+
+  # Display a list of games saved in the 'saves' folder, if there are any.
+  def display_saved_games
+    if Dir.glob('saves/*').empty?
+      puts 'No saved games found!'
+      start_menu
+    else
+      puts 'Found the following saves:'
+      puts Dir.glob('saves/*').join("\n")
+    end
+  end
+
+  # Takes a name of a saved game object as an argument and loads the object.
+  def load_game(game)
+    if File.exist?("saves/#{game}")
+      loaded_game = Marshal.load(File.open("saves/#{game}", 'r'))
+      loaded_game.game_loop
     else
       puts 'No game found with that name.'
       start_menu
     end
   end
 
+  def start_new_game
+    load_dictionary
+    pick_word
+    game_loop
+  end
+
+  # Read the dictionary file, populate the dictionary array
+  #   with all the words that match the requirements
+  def load_dictionary
+    File.open('5desk.txt', 'r').readlines.each do |line|
+      @dictionary << line if line.strip.length.between?(5, 12)
+    end
+  end
+
+  # Pick a random word from the dictionary for the player to guess
+  def pick_word
+    @word = @dictionary.sample.strip.downcase.split('')
+  end
+
+  # Loop for displaying progress and guessing letters until the game ends.
   def game_loop
     loop do
       check_progress
@@ -79,43 +79,84 @@ class Game
       display_progress
       guess_a_letter
     end
+    finish_game
+  end
+
+  # Give the user feedback on the result of the game and go to the start menu.
+  def finish_game
     if @progress == @word
       puts "You guessed it, the word was #{@word.join.upcase}! You win!"
-    else 
+    else
       puts "Out of turns! The correct word was #{@word.join.upcase}!"
     end
   end
 
-
+  # Reset the progress array, repopulate the progress, misses and guessed
+  #   letters arrays according to the user's guess.
   def check_progress
     @progress = []
     @word.each do |letter|
-      if letter == @guess || @guessed_letters.include?(letter)
-        @progress << letter
-      else
-        @progress << '_'
-      end
+      @progress << if letter == @guess || @guessed_letters.include?(letter)
+                     letter
+                   else
+                     '_'
+                   end
     end
-    @word.include?(@guess) ? @guessed_letters << @guess : @misses << @guess unless @guess == ''
+    return if @guess == ''
+    @word.include?(@guess) ? @guessed_letters << @guess : @misses << @guess
   end
 
+  # Check if the game should be ended (6 wrong guesses or the word is guessed.)
+  def game_over?
+    @misses.size > 5 || @progress == @word
+  end
+
+  # Display info about already guessed letters and number of wrong guesses left.
   def display_progress
     puts @progress.join.upcase
     puts "Misses: #{@misses}"
     puts "You have #{6 - @misses.size} missed guesses left."
   end
 
-  def game_over?
-    @misses.size > 5 || @progress == @word
+  # Prompt the user to enter a letter to guess(can also save or exit the game)
+  def guess_a_letter
+    puts 'Guess a letter! (You can also "save" or "exit" the game):'
+    guess = gets.chomp.downcase
+    case guess
+    when 'save' then save_game
+                     display_progress
+                     guess_a_letter
+    when 'exit' then exit_game
+    else check_guess(guess)
+    end
   end
 
-  def start
-    load_dictionary
-    pick_word
-    puts @word
-    game_loop
+  # Serializes the game object to a file with the chosen name.
+  def save_game
+    puts 'Enter a name for your saved game:'
+    name = gets.chomp
+    File.open("saves/#{name}", 'w').puts Marshal.dump(self)
+    puts 'Game saved!'
+  end
+
+  # Check if the player's input is a valid guess(letter from a to z).
+  def check_guess(guess)
+    if @misses.include?(guess) || @progress.include?(guess)
+      puts 'You have already tried that letter!'
+      display_progress
+      guess_a_letter
+    elsif ('a'..'z').cover?(guess.downcase)
+      @guess = guess
+    else
+      puts 'That is not a valid guess! Use only single letters!'
+      guess_a_letter
+    end
+  end
+
+  def exit_game
+    puts 'Thanks for playing, goodbye!'
+    exit
   end
 end
 
-$a = Game.new
-$a.start_menu
+Game.new.start_menu
