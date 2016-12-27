@@ -82,7 +82,7 @@ class Game
     finish_game
   end
 
-  # Give the user feedback on the result of the game and go to the start menu.
+  # Give the user feedback on the result of the game.
   def finish_game
     if @progress == @word
       puts "You guessed it, the word was #{@word.join.upcase}! You win!"
@@ -118,7 +118,7 @@ class Game
     puts "You have #{6 - @misses.size} missed guesses left."
   end
 
-  # Prompt the user to enter a letter to guess(can also save or exit the game)
+  # Prompt the user to enter a letter to guess, save or exit the game)
   def guess_a_letter
     puts 'Guess a letter! (You can also "save" or "exit" the game):'
     guess = gets.chomp.downcase
@@ -139,7 +139,8 @@ class Game
     puts 'Game saved!'
   end
 
-  # Check if the player's input is a valid guess(letter from a to z).
+  # Check if the player's input is a valid guess(letter from a to z
+  #   that hasn't been tried yet).
   def check_guess(guess)
     if @misses.include?(guess) || @progress.include?(guess)
       puts 'You have already tried that letter!'
@@ -148,7 +149,7 @@ class Game
     elsif ('a'..'z').cover?(guess.downcase)
       @guess = guess
     else
-      puts 'That is not a valid guess! Use only single letters!'
+      puts 'That is not a valid guess! Use single letters from a to z.'
       guess_a_letter
     end
   end
